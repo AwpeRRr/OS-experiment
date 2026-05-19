@@ -1,40 +1,86 @@
-#include <linux/init.h>
-#include <linux/module.h>
-#include <linux/sched.h>
-#include <linux/sched/signal.h> // 需要此头文件来遍历进程
+// User-space process lister: iterate /proc and print PID + executable name
+// Usage: ex9 [num]
 
-// 接收用户传递的参数 num
-static int num = -1;
-module_param(num, int, 0644);
-MODULE_PARM_DESC(num, "Number of processes to print (default: all)");
+#include <stdio.h>
+#include <stdlib.h>
+#include <dirent.h>
+#include <ctype.h>
+#include <string.h>
+#include <errno.h>
+#include <limits.h>
+#include <unistd.h>
+#include <sys/types.h>
 
-static int __init process_info_init(void) {
-    struct task_struct *task;
-    int count = 0;
+#ifndef PATH_MAX
+#define PATH_MAX 4096
+#endif
 
-    printk(KERN_INFO "--- 进程控制块信息展示模块已加载 ---\n");
+static int is_digits(const char *s) {
+    if (!s || !*s) return 0;
+    for (; *s; ++s) if (!isdigit((unsigned char)*s)) return 0;
+    return 1;
+}
 
-    // 遍历双向链表中的所有进程
-    for_each_process(task) {
-        if (num >= 0 && count >= num) {
-            break; // 如果指定了num且大于等于0，达到数量则停止
+int main(int argc, char **argv) {
+    long num = -1;
+    if (argc > 1) {
+        char *endptr;
+        errno = 0;
+        num = strtol(argv[1], &endptr, 10);
+        if (errno || *endptr != '\0' || num < 0) {
+            fprintf(stderr, "Usage: %s [num]\n", argv[0]);
+            return 1;
         }
-        // 打印 进程PID 和 进程的可执行文件名
-        printk(KERN_INFO "PID: %d, Executable Name: %s\n", task->pid, task->comm);
-        count++;
     }
 
-    printk(KERN_INFO "--- 共打印了 %d 个进程信息 ---\n", count);
+    DIR *proc = opendir("/proc");
+    if (!proc) {
+        perror("opendir(/proc)");
+        return 1;
+    }
+
+    struct dirent *entry;
+    int count = 0;
+
+    while ((entry = readdir(proc)) != NULL) {
+        if (!is_digits(entry->d_name))
+            continue;
+
+        int pid = atoi(entry->d_name);
+
+        char comm_path[PATH_MAX];
+        snprintf(comm_path, sizeof(comm_path), "/proc/%s/comm", entry->d_name);
+
+        char comm[256] = {0};
+        FILE *f = fopen(comm_path, "r");
+        if (f) {
+            if (fgets(comm, sizeof(comm), f) != NULL) {
+                size_t ln = strlen(comm);
+                if (ln && comm[ln-1] == '\n') comm[ln-1] = '\0';
+            }
+            fclose(f);
+        } else {
+            // fallback: try reading /proc/<pid>/exe link
+            char exe_path[PATH_MAX];
+            char exe_real[PATH_MAX];
+            snprintf(exe_path, sizeof(exe_path), "/proc/%s/exe", entry->d_name);
+            ssize_t r = readlink(exe_path, exe_real, sizeof(exe_real) - 1);
+            if (r != -1) {
+                exe_real[r] = '\0';
+                char *base = strrchr(exe_real, '/');
+                if (base) strncpy(comm, base + 1, sizeof(comm)-1);
+                else strncpy(comm, exe_real, sizeof(comm)-1);
+            } else {
+                strncpy(comm, "unknown", sizeof(comm)-1);
+            }
+        }
+
+        printf("PID: %d, Executable Name: %s\n", pid, comm);
+        count++;
+        if (num >= 0 && count >= num) break;
+    }
+
+    closedir(proc);
+    fprintf(stderr, "--- Printed %d process(es) ---\n", count);
     return 0;
 }
-
-static void __exit process_info_exit(void) {
-    printk(KERN_INFO "--- 进程控制块信息展示模块已卸载 ---\n");
-}
-
-module_init(process_info_init);
-module_exit(process_info_exit);
-
-MODULE_LICENSE("GPL");
-MODULE_AUTHOR("OS Student");
-MODULE_DESCRIPTION("Display Process Control Block Info");
