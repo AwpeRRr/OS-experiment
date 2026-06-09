@@ -1,0 +1,3 @@
+Hello!!! This is test_file!
+Read success!
+This is something from Child..
