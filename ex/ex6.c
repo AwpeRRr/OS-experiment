@@ -7,26 +7,25 @@
 
 #define BUFFER_SIZE 5
 
-// 定义存在于共享内存中的数据结构
+
 typedef struct {
     int buffer[BUFFER_SIZE];
     int in;
     int out;
-    sem_t empty; // 空缓冲区数量
-    sem_t full;  // 满缓冲区数量
+    sem_t empty; // 空缓冲区
+    sem_t full;  // 满缓冲区
     sem_t mutex; // 互斥锁
 } SharedData;
 
 int main() {
-    // 申请一块能在父子进程间共享的匿名内存
-    SharedData *shared = mmap(NULL, sizeof(SharedData), 
-                              PROT_READ | PROT_WRITE, 
-                              MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    
+    SharedData *shared = mmap(NULL, sizeof(SharedData), PROT_READ | PROT_WRITE, 
+    MAP_SHARED | MAP_ANONYMOUS, -1, 0);
     
     shared->in = 0;
     shared->out = 0;
 
-    // 初始化信号量，第二个参数为 1 表示在进程间共享
+    // 初始化信号量
     sem_init(&shared->empty, 1, BUFFER_SIZE); 
     sem_init(&shared->full, 1, 0);            
     sem_init(&shared->mutex, 1, 1);           

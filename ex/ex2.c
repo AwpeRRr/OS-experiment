@@ -5,10 +5,10 @@
 
 // 全局共享数据
 int shared_data = 0;
-// 互斥锁（保护共享数据，防止竞态条件）
+
 pthread_mutex_t lock;
 
-// 线程处理函数
+
 void* thread_function(void* arg) {
     int thread_id = *(int*)arg;
     
@@ -25,7 +25,7 @@ int main() {
     pthread_t thread1, thread2;
     int id1 = 1, id2 = 2;
 
-    // 初始化互斥锁
+    
     pthread_mutex_init(&lock, NULL);
 
     printf("[主进程] 初始共享数据值为: %d\n", shared_data);
@@ -34,7 +34,7 @@ int main() {
     pthread_create(&thread1, NULL, thread_function, &id1);
     pthread_create(&thread2, NULL, thread_function, &id2);
 
-    // 等待线程执行完毕
+    // 等待执行
     pthread_join(thread1, NULL);
     pthread_join(thread2, NULL);
 
