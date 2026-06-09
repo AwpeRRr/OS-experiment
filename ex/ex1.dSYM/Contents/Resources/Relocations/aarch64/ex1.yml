@@ -1,0 +1,5 @@
+---
+triple:          'arm64-apple-darwin'
+binary-path:     '/Users/jakie/Code/OS-Experiment/OS-experiment/ex/ex1'
+relocations:     []
+...
